@@ -1,0 +1,85 @@
+# GUARDX — Build Walkthrough
+
+## What Was Built
+
+A complete **8-layer predictive maintenance system** for CNC machines, from data generation to live dashboard.
+
+| Layer | Component | Status |
+|-------|-----------|--------|
+| 1+2 | Data Simulator (replaces hardware) | 50,000 rows generated |
+| 3 | FastAPI Ingestion API | 7 router groups, 20+ endpoints |
+| 4 | Preprocessing Engine | Smoothing, outlier capping, 10 features |
+| 5 | SQLite Time-Series Storage | 6 tables with WAL mode |
+| 6 | ML Intelligence Engine | Isolation Forest + XGBoost, 3-phase lifecycle |
+| 7 | Health Score & Risk Engine | Weighted scoring with alert generation |
+| 8 | HTML/CSS/JS Dashboard | 6-page SPA with Plotly.js charts |
+
+---
+
+## Dashboard Screenshots
+
+### Main Dashboard
+Health gauge at 73.9% (WARNING), live sensor charts, system status grid:
+
+![Dashboard Home](C:\Users\Keerthi Sridhar\.gemini\antigravity\brain\60dee497-e38a-436d-9c16-d2f7050895e0\dashboard_main_1771683804007.png)
+
+### Anomaly Monitor
+Score timeline with threshold line, flagged events table:
+
+![Anomaly Monitor](C:\Users\Keerthi Sridhar\.gemini\antigravity\brain\60dee497-e38a-436d-9c16-d2f7050895e0\anomaly_monitor_1771683864725.png)
+
+### ML Intelligence
+Phase A active (Unsupervised), Isolation Forest loaded, prediction distribution:
+
+![ML Intelligence](C:\Users\Keerthi Sridhar\.gemini\antigravity\brain\60dee497-e38a-436d-9c16-d2f7050895e0\ml_intelligence_1771683971775.png)
+
+### Dashboard Demo Recording
+
+![Dashboard navigation demo](C:\Users\Keerthi Sridhar\.gemini\antigravity\brain\60dee497-e38a-436d-9c16-d2f7050895e0\dashboard_verification_1771683761943.webp)
+
+---
+
+## Verification Results
+
+### Dataset Generation
+- **50,000 rows** generated successfully
+- **70% normal** / **30% fault** distribution across 4 types
+- Fault types: bearing_wear, spindle_imbalance, overheating, overload (7.5% each)
+
+### API Testing
+```
+POST /api/v1/ingest    -> 200 OK (id: 1, timestamp confirmed)
+GET  /dashboard/summary -> 200 OK (301 readings, Phase A, score: 0.602)
+GET  /ml/status         -> 200 OK (Phase A, IF loaded, 0 labels)
+```
+
+### Data Streaming
+- 200 rows streamed via [stream_to_api.py](file:///c:/Users/Keerthi%20Sridhar/Desktop/GAURDX/data_simulator/stream_to_api.py) at 0.01s rate
+- **0 errors**, 100% delivery
+
+### Dashboard
+- All 6 pages render correctly
+- Plotly charts populate with live data
+- Health gauge, sensor charts, anomaly timeline all functional
+- Navigation between pages works smoothly
+
+---
+
+## How to Run
+
+```bash
+# 1. Generate dataset
+python -m data_simulator.simulator --rows 50000
+
+# 2. Start API server
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# 3. Stream data (in another terminal)
+python -m data_simulator.stream_to_api --rate 0.1 --max-rows 1000
+
+# 4. Open dashboard
+# http://localhost:8000/
+```
+
+## File Structure
+35+ files across 7 packages: `data_simulator/`, [api/](file:///c:/Users/Keerthi%20Sridhar/Desktop/GAURDX/dashboard/js/app.js#91-100), `database/`, `services/`, [ml/](file:///c:/Users/Keerthi%20Sridhar/Desktop/GAURDX/dashboard/index.html), [dashboard/](file:///c:/Users/Keerthi%20Sridhar/Desktop/GAURDX/api/main.py#79-86)

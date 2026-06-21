@@ -1,0 +1,313 @@
+# GUARDX — Predictive Maintenance System Implementation Plan
+
+Build a complete software-only predictive maintenance system for CNC machines, replacing hardware layers 1-2 with a data simulator and implementing software layers 3-8.
+
+## Proposed Changes
+
+### Component 1: Project Structure & Configuration
+
+#### [NEW] [requirements.txt](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/requirements.txt)
+All Python dependencies:
+```
+fastapi==0.115.0
+uvicorn==0.30.0
+pandas==2.2.0
+numpy==1.26.0
+scikit-learn==1.4.0
+xgboost==2.0.0
+joblib==1.3.0
+streamlit==1.40.0
+plotly==5.18.0
+pydantic==2.6.0
+requests==2.31.0
+apscheduler==3.10.0
+python-dotenv==1.0.0
+httpx==0.27.0
+```
+
+#### [NEW] [config.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/config.py)
+Central configuration: DB path, sensor ranges, ML thresholds, health score weights, alert thresholds. Loaded from `.env` with sensible defaults.
+
+#### [NEW] [.env](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/.env)
+Environment variables for configurable parameters.
+
+---
+
+### Component 2: CNC Data Simulator (Replaces Layers 1+2)
+
+#### [NEW] [data_simulator/simulator.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/data_simulator/simulator.py)
+Generates synthetic CNC time-series data with realistic machine behavior:
+
+- **Normal baseline**: vibration ~0.3-0.5g, temperature ~35-45°C, current ~1.5-2.0A
+- **Fault injection modes**:
+  - `bearing_wear`: gradual vibration increase + spikes
+  - `spindle_imbalance`: periodic high-frequency vibration bursts
+  - `overheating`: temperature ramp beyond threshold
+  - `overload`: sudden current spikes + temperature rise
+- **Output**: CSV dataset with `timestamp, vibration, temperature, current, machine_state, fault_type`
+- Generates 50,000+ rows covering ~14 hours at 1-second intervals
+- Mix: ~70% normal, ~30% fault patterns distributed across types
+
+#### [NEW] [data_simulator/stream_to_api.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/data_simulator/stream_to_api.py)
+Reads generated CSV and streams rows to the FastAPI ingestion endpoint via HTTP POST, simulating real-time ESP32 data transmission at configurable rate.
+
+---
+
+### Component 3: Data Ingestion API — Layer 3
+
+#### [NEW] [api/main.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/main.py)
+FastAPI application entry point. Mounts all routers, CORS middleware, startup/shutdown events (DB init).
+
+#### [NEW] [api/routers/ingest.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/ingest.py)
+- `POST /api/v1/ingest` — receives single sensor JSON payload, validates, stores raw
+- `POST /api/v1/ingest/batch` — batch ingestion endpoint
+- `GET /api/v1/ingest/latest` — latest N raw readings
+
+#### [NEW] [api/routers/analytics.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/analytics.py)
+- `GET /api/v1/analytics/sensor/{sensor_name}` — historical sensor data with time range
+- `GET /api/v1/analytics/summary` — statistical summary
+- `GET /api/v1/analytics/correlation` — cross-sensor correlation
+
+#### [NEW] [api/routers/anomaly.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/anomaly.py)
+- `GET /api/v1/anomaly/latest` — latest anomaly result
+- `GET /api/v1/anomaly/history` — anomaly history with time range
+
+#### [NEW] [api/routers/health.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/health.py)
+- `GET /api/v1/health/current` — current health score + risk level
+- `GET /api/v1/health/history` — health score history
+
+#### [NEW] [api/routers/labels.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/labels.py)
+- `POST /api/v1/labels` — submit fault label for a time range
+- `GET /api/v1/labels` — list all labels
+- `GET /api/v1/labels/count` — count labeled events (used for phase transition)
+
+#### [NEW] [api/routers/alerts.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/alerts.py)
+- `GET /api/v1/alerts` — list alerts with filters
+- `PUT /api/v1/alerts/{id}/acknowledge` — acknowledge an alert
+
+#### [NEW] [api/routers/ml.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/routers/ml.py)
+- `GET /api/v1/ml/status` — current ML phase, model metrics
+- `POST /api/v1/ml/retrain` — trigger model retraining
+- `GET /api/v1/ml/predictions` — latest predictions
+
+#### [NEW] [api/schemas.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/api/schemas.py)
+Pydantic models: `SensorReading`, `AnomalyResult`, `HealthScore`, `FaultLabel`, `Alert`, `MLStatus`, etc.
+
+---
+
+### Component 4: Preprocessing & Feature Engineering — Layer 4
+
+#### [NEW] [services/preprocessing.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/services/preprocessing.py)
+- Moving average smoothing (window=10)
+- IQR-based outlier capping
+- Min-Max normalization
+- Feature extraction:
+  - `rms_vibration` — root mean square over rolling window
+  - `temp_gradient` — rate of temperature change (°C/min)
+  - `current_variance` — variance over rolling window
+  - `vibration_peak_ratio` — peak/mean ratio
+  - `rolling_mean`, `rolling_std` for each sensor
+- Returns structured feature vector per timestamp
+
+---
+
+### Component 5: Time-Series Storage — Layer 5
+
+#### [NEW] [database/db.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/database/db.py)
+SQLite database manager: connection pool, table creation, WAL mode.
+
+#### [NEW] [database/models.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/database/models.py)
+6 tables as per Backend Design Document:
+1. `raw_sensor_data` — timestamp, vibration, temperature, current
+2. `processed_features` — all extracted features per timestamp
+3. `anomaly_results` — anomaly_score, is_anomaly, model_type
+4. `health_scores` — health_score, risk_level, timestamp
+5. `fault_labels` — operator-submitted labels with fault_type
+6. `alerts` — alert_type, severity, message, acknowledged
+
+#### [NEW] [database/crud.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/database/crud.py)
+CRUD operations for all 6 tables: insert, query by time range, get latest N, aggregations.
+
+---
+
+### Component 6: ML Intelligence Engine — Layer 6
+
+#### [NEW] [ml/engine.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/ml/engine.py)
+Main ML orchestrator: decides current phase (A/B/C), runs appropriate model(s), returns predictions.
+
+#### [NEW] [ml/isolation_forest.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/ml/isolation_forest.py)
+Phase A: Unsupervised anomaly detection using sklearn `IsolationForest`.
+- Train on feature vectors from normal operation
+- Output: anomaly_score (-1 to 1), is_anomaly flag
+- Persistence: save/load via joblib
+
+#### [NEW] [ml/classifier.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/ml/classifier.py)
+Phase B/C: Supervised classification using XGBoost.
+- Train on labeled feature vectors
+- Output: fault_type probability distribution, predicted class
+- Classes: `normal`, `bearing_wear`, `spindle_imbalance`, `overheating`, `overload`
+
+#### [NEW] [ml/trainer.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/ml/trainer.py)
+Retraining pipeline: fetch labeled data, train models, evaluate, persist if improved.
+
+---
+
+### Component 7: Health Score & Risk Engine — Layer 7
+
+#### [NEW] [services/health_engine.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/services/health_engine.py)
+- `Health = 100 - (w1 * anomaly_risk + w2 * temp_risk + w3 * vibration_risk + w4 * current_risk)`
+- Default weights: anomaly=0.4, vibration=0.25, temperature=0.2, current=0.15
+- Rolling average smoothing (window=10)
+- Persistence validation: anomaly must persist 5+ consecutive readings
+- Risk classification: Healthy (80-100), Warning (60-80), Critical (40-60), High Risk (<40)
+
+---
+
+### Component 8: Streamlit Dashboard — Layer 8
+
+#### [NEW] [dashboard/app.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/app.py)
+Main Streamlit entry point with sidebar navigation and page routing.
+
+#### [NEW] [dashboard/pages/home.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/pages/home.py)
+Main Dashboard: Health gauge (Plotly), status banner, live sensor line charts (60s rolling window), recent alerts table.
+
+#### [NEW] [dashboard/pages/anomaly_monitor.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/pages/anomaly_monitor.py)
+Anomaly score timeline, threshold controls, flagged events review queue.
+
+#### [NEW] [dashboard/pages/sensor_analytics.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/pages/sensor_analytics.py)
+Sensor deep-dive: individual graphs, cross-correlation heatmap, time-range selector.
+
+#### [NEW] [dashboard/pages/ml_intelligence.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/pages/ml_intelligence.py)
+ML phase indicator, model performance metrics, confusion matrix, retraining history.
+
+#### [NEW] [dashboard/pages/fault_labeling.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/pages/fault_labeling.py)
+Review anomaly events, assign fault labels, supports supervised learning transition.
+
+#### [NEW] [dashboard/pages/alerts_history.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/pages/alerts_history.py)
+Alert log with filters by severity, date, acknowledgement status.
+
+#### [NEW] [dashboard/components/health_gauge.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/components/health_gauge.py)
+Plotly gauge chart for health score visualization with color coding.
+
+#### [NEW] [dashboard/components/sensor_chart.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/components/sensor_chart.py)
+Reusable real-time line chart component for sensor data.
+
+#### [NEW] [dashboard/components/status_banner.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/dashboard/components/status_banner.py)
+Machine status indicator with color-coded risk level.
+
+---
+
+### Component 9: Background Scheduler
+
+#### [NEW] [services/scheduler.py](file:///c:/Users/Keerthi Sridhar/Desktop/GAURDX/services/scheduler.py)
+APScheduler jobs:
+- Process raw data → features (every 5 seconds)
+- Run ML inference (every 5 seconds)
+- Compute health score (every 5 seconds)
+- Check alert conditions (every 10 seconds)
+- Model retraining check (every 1 hour)
+
+---
+
+## Final Project Structure
+
+```
+GAURDX/
+├── config.py
+├── .env
+├── requirements.txt
+├── data_simulator/
+│   ├── __init__.py
+│   ├── simulator.py
+│   └── stream_to_api.py
+├── api/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── schemas.py
+│   └── routers/
+│       ├── __init__.py
+│       ├── ingest.py
+│       ├── analytics.py
+│       ├── anomaly.py
+│       ├── health.py
+│       ├── labels.py
+│       ├── alerts.py
+│       └── ml.py
+├── database/
+│   ├── __init__.py
+│   ├── db.py
+│   ├── models.py
+│   └── crud.py
+├── services/
+│   ├── __init__.py
+│   ├── preprocessing.py
+│   ├── health_engine.py
+│   └── scheduler.py
+├── ml/
+│   ├── __init__.py
+│   ├── engine.py
+│   ├── isolation_forest.py
+│   ├── classifier.py
+│   └── trainer.py
+├── dashboard/
+│   ├── app.py
+│   ├── pages/
+│   │   ├── home.py
+│   │   ├── anomaly_monitor.py
+│   │   ├── sensor_analytics.py
+│   │   ├── ml_intelligence.py
+│   │   ├── fault_labeling.py
+│   │   └── alerts_history.py
+│   └── components/
+│       ├── health_gauge.py
+│       ├── sensor_chart.py
+│       └── status_banner.py
+├── models/           # saved ML models (joblib)
+└── data/             # generated datasets
+```
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+1. **Data Simulator Verification**
+   ```
+   cd c:\Users\Keerthi Sridhar\Desktop\GAURDX
+   python -c "from data_simulator.simulator import generate_dataset; df = generate_dataset(); print(f'Rows: {len(df)}, Columns: {list(df.columns)}'); print(df.describe())"
+   ```
+   Expected: 50,000+ rows with vibration, temperature, current, machine_state, fault_type columns.
+
+2. **API Endpoint Testing**
+   ```
+   cd c:\Users\Keerthi Sridhar\Desktop\GAURDX
+   uvicorn api.main:app --host 0.0.0.0 --port 8000 &
+   # Then test with:
+   python -c "import httpx; r = httpx.post('http://localhost:8000/api/v1/ingest', json={'vibration': 0.42, 'temperature': 38.5, 'current': 1.8}); print(r.status_code, r.json())"
+   ```
+   Expected: 200 OK with stored reading confirmation.
+
+3. **ML Pipeline Test**
+   ```
+   python -c "from ml.engine import MLEngine; engine = MLEngine(); engine.train_unsupervised(); result = engine.predict([0.42, 38.5, 1.8]); print(result)"
+   ```
+   Expected: anomaly_score and is_anomaly flag returned.
+
+4. **End-to-End Pipeline Test**
+   ```
+   python -c "from data_simulator.simulator import generate_dataset; from services.preprocessing import preprocess; from ml.engine import MLEngine; from services.health_engine import compute_health; df = generate_dataset(n_rows=100); features = preprocess(df); engine = MLEngine(); engine.train_unsupervised_from_df(features); results = engine.predict_batch(features); health = compute_health(results); print(health)"
+   ```
+
+### Visual Verification (Browser)
+5. **Dashboard Verification**: Launch Streamlit dashboard and verify all 6 screens render correctly with data:
+   ```
+   streamlit run dashboard/app.py
+   ```
+   - Health gauge displays score 0-100
+   - Live sensor charts show data
+   - Anomaly monitor shows detection results
+   - ML Intelligence shows current phase
+
+### Manual Verification
+6. **Stream Simulator → API → Dashboard**: Run all 3 components simultaneously and verify real-time data flow from simulator through API to dashboard within <2 second latency.

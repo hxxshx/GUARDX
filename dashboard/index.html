@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuardX - Predictive Maintenance</title>
+    <meta name="description"
+        content="GuardX CNC Predictive Maintenance Dashboard - Real-time machine health monitoring">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/phosphor-icons/1.4.2/css/phosphor.min.css">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">G</div>
+                <span class="logo-text">GuardX</span>
+            </div>
+            <span class="version-badge">v1.0</span>
+        </div>
+        <ul class="nav-links">
+            <li class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                <i class="ph-chart-line-up"></i>
+                <span>Dashboard</span>
+            </li>
+            <li class="nav-item" data-page="anomaly" id="nav-anomaly">
+                <i class="ph-warning-diamond"></i>
+                <span>Anomaly Monitor</span>
+            </li>
+            <li class="nav-item" data-page="analytics" id="nav-analytics">
+                <i class="ph-chart-bar"></i>
+                <span>Sensor Analytics</span>
+            </li>
+            <li class="nav-item" data-page="ml" id="nav-ml">
+                <i class="ph-brain"></i>
+                <span>ML Intelligence</span>
+            </li>
+            <li class="nav-item" data-page="labeling" id="nav-labeling">
+                <i class="ph-tag"></i>
+                <span>Fault Labeling</span>
+            </li>
+            <li class="nav-item" data-page="alerts" id="nav-alerts">
+                <i class="ph-bell"></i>
+                <span>Alerts History</span>
+                <span class="alert-badge" id="alert-count" style="display:none">0</span>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="connection-status" id="connection-status">
+                <span class="status-dot online"></span>
+                <span>System Online</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="menu-toggle" id="menu-toggle">
+                    <i class="ph-list"></i>
+                </button>
+                <h1 class="page-title" id="page-title">Dashboard</h1>
+            </div>
+            <div class="top-bar-right">
+                <div class="ml-phase-indicator" id="ml-phase-badge">
+                    <span class="phase-dot"></span>
+                    <span class="phase-text">Phase A</span>
+                </div>
+                <div class="timestamp" id="current-time"></div>
+            </div>
+        </header>
+
+        <!-- Page Containers -->
+        <div class="page-container">
+            <!-- Dashboard Page -->
+            <section class="page active" id="page-dashboard">
+                <div class="dashboard-grid">
+                    <!-- Health Gauge -->
+                    <div class="card card-health" id="card-health">
+                        <div class="card-header">
+                            <h3>Machine Health</h3>
+                            <span class="risk-badge" id="risk-badge">Healthy</span>
+                        </div>
+                        <div class="gauge-container" id="health-gauge"></div>
+                    </div>
+                    <!-- Status Banner -->
+                    <div class="card card-status" id="card-status">
+                        <div class="card-header">
+                            <h3>System Status</h3>
+                        </div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">Total Readings</span>
+                                <span class="status-value" id="stat-readings">--</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Active Alerts</span>
+                                <span class="status-value" id="stat-alerts">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">ML Phase</span>
+                                <span class="status-value" id="stat-phase">A</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Anomaly Score</span>
+                                <span class="status-value" id="stat-anomaly">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- RUL Countdown -->
+                    <div class="card card-wide" id="card-rul">
+                        <div class="card-header">
+                            <h3>Remaining Useful Life (RUL)</h3>
+                        </div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">Time to Failure</span>
+                                <span class="status-value" id="rul-countdown" style="color: var(--warning);">N/A</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Degradation Rate</span>
+                                <span class="status-value" id="degradation-rate">0%/cycle</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- CNC Fault Diagnostics -->
+                    <div class="card card-wide" id="card-cnc-diag">
+                        <div class="card-header">
+                            <h3>CNC Fault Diagnosis</h3>
+                        </div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">Primary Diagnosis</span>
+                                <span class="status-value" id="cnc-diagnosis" style="font-size: 0.95rem;">Normal</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Confidence</span>
+                                <span class="status-value" id="cnc-confidence">--</span>
+                            </div>
+                        </div>
+                        <div class="stats-list" id="cnc-evidence" style="margin-top: 0.5rem; font-size: 0.8rem;">
+                            <div class="stat-row"><span>Evidence</span><span id="cnc-evidence-text">Awaiting
+                                    data...</span></div>
+                        </div>
+                    </div>
+                    <!-- Live Sensor Charts -->
+                    <div class="card card-wide" id="card-vibration">
+                        <div class="card-header">
+                            <h3>Vibration RMS (g)</h3>
+                        </div>
+                        <div class="chart-container" id="chart-vibration"></div>
+                    </div>
+                    <div class="card card-wide" id="card-temperature">
+                        <div class="card-header">
+                            <h3>Temperature (&deg;C)</h3>
+                        </div>
+                        <div class="chart-container" id="chart-temperature"></div>
+                    </div>
+                    <div class="card card-wide" id="card-current">
+                        <div class="card-header">
+                            <h3>Cutting Force (N)</h3>
+                        </div>
+                        <div class="chart-container" id="chart-current"></div>
+                    </div>
+                    <!-- Recent Alerts -->
+                    <div class="card card-full" id="card-recent-alerts">
+                        <div class="card-header">
+                            <h3>Recent Alerts</h3>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="data-table" id="recent-alerts-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Type</th>
+                                        <th>Severity</th>
+                                        <th>Message</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-alerts-body">
+                                    <tr>
+                                        <td colspan="5" class="no-data">No alerts yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Anomaly Monitor Page -->
+            <section class="page" id="page-anomaly">
+                <div class="dashboard-grid">
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Anomaly Score Timeline</h3>
+                        </div>
+                        <div class="chart-container chart-tall" id="chart-anomaly-timeline"></div>
+                    </div>
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Flagged Events</h3>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="data-table" id="anomaly-events-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Score</th>
+                                        <th>Model</th>
+                                        <th>Prediction</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="anomaly-events-body">
+                                    <tr>
+                                        <td colspan="4" class="no-data">Loading...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sensor Analytics Page -->
+            <section class="page" id="page-analytics">
+                <div class="dashboard-grid">
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Sensor Deep Dive</h3>
+                            <select class="select-input" id="analytics-sensor-select">
+                                <option value="vibration_rms">Vibration RMS</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="cutting_force">Cutting Force</option>
+                                <option value="motor_current">Motor Current</option>
+                                <option value="speed_command_level">Speed (PWM %)</option>
+                            </select>
+                        </div>
+                        <div class="chart-container chart-tall" id="chart-analytics-detail"></div>
+                    </div>
+                    <div class="card card-half">
+                        <div class="card-header">
+                            <h3>Statistics</h3>
+                        </div>
+                        <div class="stats-list" id="analytics-stats">
+                            <div class="stat-row"><span>Min</span><span id="stat-min">--</span></div>
+                            <div class="stat-row"><span>Max</span><span id="stat-max">--</span></div>
+                            <div class="stat-row"><span>Mean</span><span id="stat-mean">--</span></div>
+                            <div class="stat-row"><span>Std Dev</span><span id="stat-std">--</span></div>
+                            <div class="stat-row"><span>Count</span><span id="stat-count">--</span></div>
+                        </div>
+                    </div>
+                    <div class="card card-half">
+                        <div class="card-header">
+                            <h3>Correlation Heatmap</h3>
+                        </div>
+                        <div class="chart-container" id="chart-correlation"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ML Intelligence Page -->
+            <section class="page" id="page-ml">
+                <div class="dashboard-grid">
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>ML Pipeline Status</h3>
+                            <button class="btn btn-primary" id="btn-retrain" onclick="triggerRetrain()">Retrain
+                                Models</button>
+                        </div>
+                        <div class="ml-phase-display">
+                            <div class="phase-card" id="phase-a-card">
+                                <div class="phase-indicator phase-a">A</div>
+                                <div class="phase-info">
+                                    <h4>Unsupervised</h4>
+                                    <p>Isolation Forest</p>
+                                </div>
+                            </div>
+                            <div class="phase-arrow">&#8594;</div>
+                            <div class="phase-card" id="phase-b-card">
+                                <div class="phase-indicator phase-b">B</div>
+                                <div class="phase-info">
+                                    <h4>Hybrid</h4>
+                                    <p>IF + XGBoost</p>
+                                </div>
+                            </div>
+                            <div class="phase-arrow">&#8594;</div>
+                            <div class="phase-card" id="phase-c-card">
+                                <div class="phase-indicator phase-c">C</div>
+                                <div class="phase-info">
+                                    <h4>Supervised</h4>
+                                    <p>XGBoost Primary</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card card-half">
+                        <div class="card-header">
+                            <h3>Model Metrics</h3>
+                        </div>
+                        <div class="stats-list" id="ml-metrics">
+                            <div class="stat-row"><span>Current Phase</span><span id="ml-current-phase">--</span></div>
+                            <div class="stat-row"><span>Labels Count</span><span id="ml-label-count">--</span></div>
+                            <div class="stat-row"><span>Phase B Threshold</span><span id="ml-phase-b-thresh">--</span>
+                            </div>
+                            <div class="stat-row"><span>Phase C Threshold</span><span id="ml-phase-c-thresh">--</span>
+                            </div>
+                            <div class="stat-row"><span>IF Model Loaded</span><span id="ml-if-loaded">--</span></div>
+                            <div class="stat-row"><span>Classifier Loaded</span><span id="ml-clf-loaded">--</span></div>
+                        </div>
+                    </div>
+                    <div class="card card-half">
+                        <div class="card-header">
+                            <h3>Prediction Distribution</h3>
+                        </div>
+                        <div class="chart-container" id="chart-predictions"></div>
+                    </div>
+                    <!-- ML Evaluation Metrics -->
+                    <div class="card card-half">
+                        <div class="card-header">
+                            <h3>ML Evaluation Metrics</h3>
+                        </div>
+                        <div class="stats-list" id="ml-eval-metrics">
+                            <div class="stat-row"><span>Anomaly Rate</span><span id="ml-anomaly-rate">--</span></div>
+                            <div class="stat-row"><span>Total Predictions</span><span id="ml-total-preds">--</span>
+                            </div>
+                            <div class="stat-row"><span>Classifier Trained</span><span id="ml-clf-status">--</span>
+                            </div>
+                            <div class="stat-row"><span>IF Trained</span><span id="ml-if-status">--</span></div>
+                        </div>
+                    </div>
+                    <!-- Business Impact -->
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Business Impact — Downtime Cost Prevented</h3>
+                        </div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">Critical Incidents Caught</span>
+                                <span class="status-value" id="biz-incidents">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Velocity Warnings</span>
+                                <span class="status-value" id="biz-velocity">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Potential Loss (No GuardX)</span>
+                                <span class="status-value" id="biz-potential-loss"
+                                    style="color: var(--high-risk);">$0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Estimated Savings</span>
+                                <span class="status-value" id="biz-savings" style="color: var(--healthy);">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fault Labeling Page -->
+            <section class="page" id="page-labeling">
+                <div class="dashboard-grid">
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Label Anomaly Event</h3>
+                        </div>
+                        <form class="label-form" id="label-form" onsubmit="submitLabel(event)">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Start Timestamp</label>
+                                    <input type="text" id="label-start" class="form-input" placeholder="ISO timestamp"
+                                        required>
+                                </div>
+                                <div class="form-group">
+                                    <label>End Timestamp</label>
+                                    <input type="text" id="label-end" class="form-input" placeholder="ISO timestamp"
+                                        required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Fault Type</label>
+                                    <select id="label-type" class="select-input" required>
+                                        <option value="bearing_wear">Bearing Wear</option>
+                                        <option value="imbalance">Imbalance</option>
+                                        <option value="overheating">Overheating</option>
+                                        <option value="overload">Overload</option>
+                                        <option value="coolant_failure">Coolant Failure</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Severity</label>
+                                    <select id="label-severity" class="select-input">
+                                        <option value="low">Low</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Notes</label>
+                                <textarea id="label-notes" class="form-input" rows="2"
+                                    placeholder="Optional notes..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Submit Label</button>
+                            <span id="label-status" class="form-status"></span>
+                        </form>
+                    </div>
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Labeled Events</h3>
+                            <span class="badge" id="label-count-badge">0 labels</span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="data-table" id="labels-table">
+                                <thead>
+                                    <tr>
+                                        <th>Start</th>
+                                        <th>End</th>
+                                        <th>Fault Type</th>
+                                        <th>Severity</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="labels-body">
+                                    <tr>
+                                        <td colspan="5" class="no-data">No labels yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerts History Page -->
+            <section class="page" id="page-alerts">
+                <div class="dashboard-grid">
+                    <div class="card card-full">
+                        <div class="card-header">
+                            <h3>Alert History</h3>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="data-table" id="alerts-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Type</th>
+                                        <th>Severity</th>
+                                        <th>Message</th>
+                                        <th>Health</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alerts-history-body">
+                                    <tr>
+                                        <td colspan="7" class="no-data">No alerts</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/anomaly.js"></script>
+    <script src="/static/js/analytics.js"></script>
+    <script src="/static/js/ml.js"></script>
+    <script src="/static/js/labeling.js"></script>
+    <script src="/static/js/alerts.js"></script>
+</body>
+
+</html>

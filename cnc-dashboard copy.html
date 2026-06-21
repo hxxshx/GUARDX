@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNC-01 Machine Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0e0e;
+    --card-bg:   #111a1a;
+    --border:    #1e2e2e;
+    --accent:    #00e676;
+    --warn:      #ffab00;
+    --crit:      #ff1744;
+    --text:      #e0f0ef;
+    --text-dim:  #4a6a6a;
+    --text-mid:  #7a9e9e;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-ui:   'Rajdhani', sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ══ HEADER ══ */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 22px;
+    border-bottom: 1px solid var(--border);
+    background: #0a0e0e;
+    transition: background 0.6s ease;
+  }
+  header.fault { background: #130808; }
+
+  .machine-id {
+    display: flex; align-items: center; gap: 10px;
+    padding-right: 16px;
+    border-right: 1px solid var(--border);
+  }
+  .gx-badge {
+    background: #1e2e2e; color: var(--text-mid);
+    font-family: var(--font-ui); font-weight: 700;
+    font-size: 13px; padding: 4px 8px; letter-spacing: 1px;
+  }
+  .machine-name-wrap { display:flex; flex-direction:column; line-height:1.2; }
+  .machine-label { font-size:9px; color:var(--text-dim); letter-spacing:2px; }
+  .machine-name  { font-family:var(--font-ui); font-weight:700; font-size:18px; letter-spacing:2px; }
+
+  .status-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 14px;
+    border: 1px solid var(--accent); color: var(--accent);
+    font-family: var(--font-ui); font-weight: 700;
+    font-size: 13px; letter-spacing: 2px;
+    transition: border-color 0.5s, color 0.5s;
+  }
+  .status-badge.fault { border-color: var(--crit); color: var(--crit); }
+
+  .status-dot {
+    width:8px; height:8px; border-radius:50%;
+    background: var(--accent);
+    animation: blink 1.4s infinite;
+    transition: background 0.5s;
+  }
+  .status-badge.fault .status-dot { background: var(--crit); animation: blink 0.6s infinite; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .fault-msg {
+    font-family: var(--font-ui); font-weight: 600;
+    font-size: 13px; letter-spacing: 2px;
+    color: var(--crit); opacity: 0;
+    transition: opacity 0.5s; text-transform: uppercase;
+  }
+  .fault-msg.show { opacity: 1; }
+
+  .header-right { margin-left:auto; display:flex; align-items:center; gap:22px; }
+  .conn-wrap {
+    display:flex; align-items:center; gap:6px;
+    font-size:11px; letter-spacing:2px; color:var(--text-mid);
+  }
+  .conn-dot {
+    width:7px; height:7px; border-radius:50%;
+    background: var(--accent); transition: background 0.5s;
+  }
+  .conn-dot.fault { background: var(--crit); }
+  .datetime { font-size:13px; letter-spacing:1px; color:var(--text-mid); }
+
+  /* ══ MAIN ══ */
+  main { flex:1; padding:20px; display:flex; flex-direction:column; gap:20px; }
+
+  .section-label {
+    font-size:10px; letter-spacing:3px;
+    color:var(--text-dim); margin-bottom:12px;
+  }
+
+  /* ── Metric Cards ── */
+  .metrics-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+
+  .metric-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 18px 16px;
+    transition: border-color 0.5s, background 0.5s;
+  }
+  .metric-card.warn { border-color: var(--warn); }
+  .metric-card.crit { border-color: var(--crit); background: #160a0a; }
+
+  .card-header {
+    display:flex; justify-content:space-between;
+    align-items:center; margin-bottom:14px;
+  }
+  .card-title { font-size:10px; letter-spacing:2px; color:var(--text-mid); }
+
+  .card-dot {
+    width:8px; height:8px; border-radius:50%;
+    background: var(--accent); transition: background 0.5s;
+  }
+  .card-dot.warn { background: var(--warn); }
+  .card-dot.crit { background: var(--crit); animation: blink 0.7s infinite; }
+
+  .card-value {
+    font-size:40px; line-height:1; margin-bottom:6px;
+    color: var(--text); transition: color 0.5s;
+  }
+  .metric-card.warn .card-value { color: var(--warn); }
+  .metric-card.crit .card-value { color: var(--crit); }
+
+  .card-unit      { font-size:11px; color:var(--text-dim); margin-bottom:6px; }
+  .card-threshold { font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+  .card-alert     { font-size:10px; letter-spacing:1.5px; font-weight:bold; margin-top:6px; min-height:14px; }
+  .card-alert.warn { color: var(--warn); }
+  .card-alert.crit { color: var(--crit); }
+
+  /* ── Coolant ── */
+  .coolant-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .coolant-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 20px 20px 22px;
+    transition: border-color 0.5s, background 0.5s;
+  }
+  .coolant-card.warn { border-color: var(--warn); }
+  .coolant-card.crit { border-color: var(--crit); background: #160a0a; }
+
+  .coolant-header {
+    display:flex; justify-content:space-between;
+    align-items:center; margin-bottom:14px;
+  }
+  .coolant-title { font-size:10px; letter-spacing:2px; color:var(--text-mid); }
+
+  .status-tag {
+    font-size:10px; letter-spacing:2px;
+    padding:3px 10px; border:1px solid;
+    font-family:var(--font-ui); font-weight:600;
+    transition: color 0.5s, border-color 0.5s;
+  }
+  .status-tag.ok   { color:var(--accent); border-color:var(--accent); }
+  .status-tag.warn { color:var(--warn);   border-color:var(--warn); }
+  .status-tag.crit { color:var(--crit);   border-color:var(--crit); }
+
+  .coolant-value {
+    font-size:50px; line-height:1; margin-bottom:4px;
+    color: var(--text); transition: color 0.5s;
+  }
+  .coolant-unit  { font-size:11px; color:var(--text-dim); margin-bottom:6px; }
+  .coolant-alert { font-size:10px; letter-spacing:2px; font-weight:bold; color:var(--crit); min-height:14px; }
+
+  .progress-row  { display:flex; align-items:center; gap:12px; margin-top:8px; }
+  .progress-bg   { flex:1; height:18px; background:#1a2a2a; overflow:hidden; }
+  .progress-fill {
+    height:100%; background:var(--accent);
+    transition: width 1.6s ease, background 0.5s;
+  }
+  .progress-fill.warn { background: var(--warn); }
+  .progress-fill.crit { background: var(--crit); }
+  .progress-pct  { font-size:11px; color:var(--text-mid); min-width:32px; text-align:right; }
+  .tank-alert    { font-size:10px; letter-spacing:2px; font-weight:bold; color:var(--crit); min-height:14px; margin-top:6px; }
+
+  /* ══ FOOTER ══ */
+  footer {
+    padding: 11px 20px;
+    border-top: 1px solid var(--border);
+    background: #0a130f;
+    text-align: center;
+    font-size: 11px; letter-spacing: 3px;
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background 0.6s, color 0.6s;
+  }
+  footer.fault { background: #130808; color: var(--crit); }
+  .foot-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+  footer.fault .foot-dot { animation: blink 0.7s infinite; }
+
+  ::-webkit-scrollbar       { width:4px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); }
+</style>
+</head>
+<body>
+
+<header id="header">
+  <div class="machine-id">
+    <div class="gx-badge">GX</div>
+    <div class="machine-name-wrap">
+      <span class="machine-label">MACHINE</span>
+      <span class="machine-name">CNC-01</span>
+    </div>
+  </div>
+  <div class="status-badge" id="statusBadge">
+    <div class="status-dot"></div>
+    <span id="statusText">RUNNING</span>
+  </div>
+  <div class="fault-msg" id="faultMsg">MACHINE OPERATING UNDER CRITICAL CONDITION</div>
+  <div class="header-right">
+    <div class="conn-wrap">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">LIVE SIMULATION</span>
+    </div>
+    <div class="datetime" id="datetime">--</div>
+  </div>
+</header>
+
+<main>
+  <div>
+    <div class="section-label">CORE MACHINE METRICS</div>
+    <div class="metrics-grid">
+
+      <div class="metric-card" id="c-vib">
+        <div class="card-header">
+          <span class="card-title">VIBRATION RMS</span>
+          <span class="card-dot" id="d-vib"></span>
+        </div>
+        <div class="card-value" id="v-vib">—</div>
+        <div class="card-unit">g (acceleration)</div>
+        <div class="card-threshold">Warn: 0.14 | Crit: 0.22</div>
+        <div class="card-alert" id="a-vib"></div>
+      </div>
+
+      <div class="metric-card" id="c-temp">
+        <div class="card-header">
+          <span class="card-title">TEMPERATURE</span>
+          <span class="card-dot" id="d-temp"></span>
+        </div>
+        <div class="card-value" id="v-temp">—</div>
+        <div class="card-unit">°C (DS18B20)</div>
+        <div class="card-threshold">Warn: 45.0 | Crit: 60.0</div>
+        <div class="card-alert" id="a-temp"></div>
+      </div>
+
+      <div class="metric-card" id="c-force">
+        <div class="card-header">
+          <span class="card-title">CUTTING FORCE</span>
+          <span class="card-dot" id="d-force"></span>
+        </div>
+        <div class="card-value" id="v-force">—</div>
+        <div class="card-unit">N (Load Cell)</div>
+        <div class="card-threshold">Warn: 15.0 | Crit: 25.0</div>
+        <div class="card-alert" id="a-force"></div>
+      </div>
+
+      <div class="metric-card" id="c-motor">
+        <div class="card-header">
+          <span class="card-title">MOTOR CURRENT</span>
+          <span class="card-dot" id="d-motor"></span>
+        </div>
+        <div class="card-value" id="v-motor">—</div>
+        <div class="card-unit">A (ACS712)</div>
+        <div class="card-threshold">Warn: 1.0 | Crit: 1.8</div>
+        <div class="card-alert" id="a-motor"></div>
+      </div>
+
+      <div class="metric-card" id="c-speed">
+        <div class="card-header">
+          <span class="card-title">SPEED COMMAND</span>
+          <span class="card-dot" id="d-speed"></span>
+        </div>
+        <div class="card-value" id="v-speed">—</div>
+        <div class="card-unit">% (PWM Duty)</div>
+        <div class="card-threshold">Range: 0-100</div>
+        <div class="card-alert" id="a-speed"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div>
+    <div class="section-label">COOLANT SYSTEM</div>
+    <div class="coolant-grid">
+
+      <div class="coolant-card" id="c-flow">
+        <div class="coolant-header">
+          <span class="coolant-title">COOLANT FLOW RATE</span>
+          <span class="status-tag ok" id="t-flow">OK</span>
+        </div>
+        <div class="coolant-value" id="v-flow">—</div>
+        <div class="coolant-unit">L/min</div>
+        <div class="coolant-alert" id="a-flow"></div>
+      </div>
+
+      <div class="coolant-card" id="c-tank">
+        <div class="coolant-header">
+          <span class="coolant-title">COOLANT TANK LEVEL</span>
+          <span class="status-tag ok" id="t-tank">OK</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <div class="coolant-value" id="v-tank">—</div>
+          <div class="coolant-unit" style="margin-bottom:14px">%</div>
+        </div>
+        <div class="progress-row">
+          <div class="progress-bg">
+            <div class="progress-fill" id="bar-tank" style="width:0%"></div>
+          </div>
+          <span class="progress-pct" id="pct-tank">0%</span>
+        </div>
+        <div class="tank-alert" id="a-tank"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer id="footer">
+  <div class="foot-dot"></div>
+  <span id="footerMsg">SYSTEM OPERATING NORMALLY</span>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  VALUE RANGES
+// ═══════════════════════════════════════════════════
+const SAFE = {
+  vib:   { min:0.020, max:0.110, dec:4 },
+  temp:  { min:28.0,  max:38.0,  dec:1 },
+  force: { min:4.0,   max:13.0,  dec:1 },
+  motor: { min:0.35,  max:0.90,  dec:3 },
+  speed: { min:45.0,  max:72.0,  dec:1 },
+  flow:  { min:4.8,   max:7.2,   dec:1 },
+  tank:  { min:68,    max:88,    dec:0 }
+};
+
+const DANGER = {
+  vib:   { min:0.240, max:0.420, dec:4 },
+  temp:  { min:52.0,  max:64.0,  dec:1 },
+  force: { min:26.0,  max:36.0,  dec:1 },
+  motor: { min:1.850, max:2.100, dec:3 },
+  speed: { min:42.0,  max:68.0,  dec:1 },
+  flow:  { min:0.4,   max:1.0,   dec:1 },
+  tank:  { min:4,     max:11,    dec:0 }
+};
+
+const TH = {
+  vib:   { warn:0.14,  crit:0.22  },
+  temp:  { warn:45.0,  crit:60.0  },
+  force: { warn:15.0,  crit:25.0  },
+  motor: { warn:1.0,   crit:1.8   },
+  flow:  { warnLow:2.5, critLow:1.2 },
+  tank:  { warnLow:30,  critLow:15  }
+};
+
+// ═══════════════════════════════════════════════════
+//  SEQUENCE ENGINE
+//  Each "phase" is a color state (green or red).
+//  Within each phase, values update N times (TICKS)
+//  every UPDATE_MS before the color switches.
+// ═══════════════════════════════════════════════════
+const UPDATE_MS    = 1800;   // ms between each value update tick
+const GREEN_TICKS  = 4;      // 4 value changes while green  (~7.2s total)
+const RED_TICKS    = 4;      // 4 value changes while red    (~7.2s total)
+const LERP_MS      = 1500;   // smooth transition duration per tick
+
+let isFault    = false;
+let ticksLeft  = GREEN_TICKS;
+let fromVals   = null;
+let toVals     = null;
+let tickStart  = null;
+
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function rand(min, max) { return min + Math.random() * (max - min); }
+
+function makeVals(fault) {
+  const R = fault ? DANGER : SAFE;
+  const out = {};
+  for (const k of Object.keys(R))
+    out[k] = parseFloat(rand(R[k].min, R[k].max).toFixed(R[k].dec));
+  return out;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function ease(t)        { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+function getInterp(t) {
+  const R = isFault ? DANGER : SAFE;
+  const out = {};
+  for (const k of Object.keys(toVals))
+    out[k] = parseFloat(lerp(fromVals[k], toVals[k], t).toFixed(R[k].dec));
+  return out;
+}
+
+// ═══════════════════════════════════════════════════
+//  LEVEL
+// ═══════════════════════════════════════════════════
+function lvl(key, val) {
+  if (key === 'flow') {
+    if (val <= TH.flow.critLow) return 'crit';
+    if (val <= TH.flow.warnLow) return 'warn';
+    return 'ok';
+  }
+  if (key === 'tank') {
+    if (val <= TH.tank.critLow) return 'crit';
+    if (val <= TH.tank.warnLow) return 'warn';
+    return 'ok';
+  }
+  const t = TH[key]; if (!t) return 'ok';
+  if (val >= t.crit) return 'crit';
+  if (val >= t.warn) return 'warn';
+  return 'ok';
+}
+
+// ═══════════════════════════════════════════════════
+//  DOM RENDER
+// ═══════════════════════════════════════════════════
+function renderMetric(key, val) {
+  const l = lvl(key, val);
+  document.getElementById(`c-${key}`).className = `metric-card ${l==='ok'?'':l}`;
+  document.getElementById(`d-${key}`).className = `card-dot ${l==='ok'?'':l}`;
+  document.getElementById(`v-${key}`).textContent = val;
+  const a = document.getElementById(`a-${key}`);
+  if (a) {
+    a.className   = `card-alert ${l}`;
+    a.textContent = l==='crit'?'CRITICAL THRESHOLD EXCEEDED':l==='warn'?'ABOVE SAFE LIMIT':'';
+  }
+}
+
+function renderFlow(val) {
+  const l = lvl('flow', val);
+  document.getElementById('c-flow').className = `coolant-card ${l==='ok'?'':l}`;
+  const v = document.getElementById('v-flow');
+  v.style.color = l==='crit'?'var(--crit)':l==='warn'?'var(--warn)':'';
+  v.textContent = val;
+  const t = document.getElementById('t-flow');
+  t.className   = `status-tag ${l}`;
+  t.textContent = l==='ok'?'OK':l==='warn'?'WARNING':'CRITICAL';
+  document.getElementById('a-flow').textContent = l==='crit'?'INSUFFICIENT COOLANT FLOW':'';
+}
+
+function renderTank(val) {
+  const l   = lvl('tank', val);
+  document.getElementById('c-tank').className = `coolant-card ${l==='ok'?'':l}`;
+  const v   = document.getElementById('v-tank');
+  v.style.color = l==='crit'?'var(--crit)':l==='warn'?'var(--warn)':'';
+  v.textContent = val;
+  const bar = document.getElementById('bar-tank');
+  bar.style.width = val + '%';
+  bar.className   = `progress-fill ${l==='ok'?'':l}`;
+  document.getElementById('pct-tank').textContent = val + '%';
+  const t   = document.getElementById('t-tank');
+  t.className   = `status-tag ${l}`;
+  t.textContent = l==='ok'?'OK':l==='warn'?'LOW':'REFILL';
+  document.getElementById('a-tank').textContent = l==='crit'?'TANK REFILL REQUIRED':'';
+}
+
+function renderAll(vals) {
+  renderMetric('vib',   vals.vib);
+  renderMetric('temp',  vals.temp);
+  renderMetric('force', vals.force);
+  renderMetric('motor', vals.motor);
+  renderMetric('speed', vals.speed);
+  renderFlow(vals.flow);
+  renderTank(vals.tank);
+}
+
+// ═══════════════════════════════════════════════════
+//  GLOBAL UI STATE
+// ═══════════════════════════════════════════════════
+function setGlobalUI(fault, vals) {
+  const $ = id => document.getElementById(id);
+  if (fault) {
+    $('header').classList.add('fault');
+    $('statusBadge').classList.add('fault');
+    $('faultMsg').classList.add('show');
+    $('connDot').classList.add('fault');
+    $('footer').classList.add('fault');
+    $('statusText').textContent  = 'FAULT';
+    $('connLabel').textContent   = 'CONNECTED';
+    $('footerMsg').textContent   = '⚠ CRITICAL: ' + worstMsg(vals);
+  } else {
+    $('header').classList.remove('fault');
+    $('statusBadge').classList.remove('fault');
+    $('faultMsg').classList.remove('show');
+    $('connDot').classList.remove('fault');
+    $('footer').classList.remove('fault');
+    $('statusText').textContent  = 'RUNNING';
+    $('connLabel').textContent   = 'LIVE SIMULATION';
+    $('footerMsg').textContent   = 'SYSTEM OPERATING NORMALLY';
+  }
+}
+
+function worstMsg(v) {
+  if (!v) return 'CRITICAL CONDITION DETECTED';
+  if (v.vib   >= TH.vib.crit)     return `EXCESSIVE VIBRATION DETECTED — ${v.vib}G`;
+  if (v.temp  >= TH.temp.crit)    return `CRITICAL TEMPERATURE — ${v.temp}°C`;
+  if (v.force >= TH.force.crit)   return `EXCESSIVE CUTTING FORCE — ${v.force}N`;
+  if (v.motor >= TH.motor.crit)   return `MOTOR OVERCURRENT — ${v.motor}A`;
+  if (v.flow  <= TH.flow.critLow) return `INSUFFICIENT COOLANT FLOW — ${v.flow} L/min`;
+  if (v.tank  <= TH.tank.critLow) return `COOLANT TANK CRITICAL — ${v.tank}%`;
+  return 'CRITICAL CONDITION DETECTED';
+}
+
+// ═══════════════════════════════════════════════════
+//  TICK ENGINE
+//  Called every UPDATE_MS.
+//  Fires multiple value updates within the same color,
+//  then switches color only when ticksLeft hits 0.
+// ═══════════════════════════════════════════════════
+function nextTick() {
+  ticksLeft--;
+
+  if (ticksLeft <= 0) {
+    // Switch color state
+    isFault   = !isFault;
+    ticksLeft = isFault ? RED_TICKS : GREEN_TICKS;
+    setGlobalUI(isFault, makeVals(isFault)); // preview for footer
+  }
+
+  // Always generate new target values within current state
+  fromVals  = toVals ? { ...toVals } : makeVals(isFault);
+  toVals    = makeVals(isFault);
+  tickStart = performance.now();
+
+  // Update global UI with new target's worst msg (fault only)
+  if (isFault) setGlobalUI(true, toVals);
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════════
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (!tickStart || !fromVals || !toVals) return;
+  const raw_t = Math.min((now - tickStart) / LERP_MS, 1);
+  renderAll(getInterp(ease(raw_t)));
+}
+
+// ═══════════════════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════════════════
+function tickClock() {
+  const now = new Date();
+  const d   = now.toLocaleDateString('en-US', {month:'short',day:'2-digit',year:'numeric'});
+  const t   = now.toTimeString().slice(0, 8);
+  document.getElementById('datetime').textContent = `${d}  ${t}`;
+}
+
+// ═══════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════
+// Seed initial display
+isFault   = false;
+ticksLeft = GREEN_TICKS;
+toVals    = makeVals(false);
+fromVals  = { ...toVals };
+tickStart = performance.now();
+setGlobalUI(false, toVals);
+renderAll(toVals);
+
+// Kick off repeating value updates
+setInterval(nextTick, UPDATE_MS);
+
+// Clock
+tickClock();
+setInterval(tickClock, 1000);
+
+// Render loop
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
