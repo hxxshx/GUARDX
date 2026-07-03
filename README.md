@@ -1,48 +1,10 @@
-<div align="center">
-
-<img src="https://img.shields.io/badge/GuardX-AI%20Predictive%20Maintenance-blueviolet?style=for-the-badge&logo=robot&logoColor=white"/>
-
-# 🛡️ GUARDX
-### *AI-Driven Predictive Maintenance for Industrial CNC Machines*
-
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![XGBoost](https://img.shields.io/badge/XGBoost-2.0.3-FF6600?style=flat-square&logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4.2-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
-[![InfluxDB](https://img.shields.io/badge/InfluxDB-Time--Series-22ADF6?style=flat-square&logo=influxdb&logoColor=white)](https://www.influxdata.com)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-
-> **Catch machine failures before they happen.** GuardX continuously monitors industrial CNC machines in real-time using a self-evolving 3-Phase Hybrid ML Pipeline — from day-one anomaly detection to surgical fault classification — saving thousands of dollars in unplanned downtime.
-
-</div>
-
----
-
-## 📌 Table of Contents
-
-- [🌟 What is GuardX?](#-what-is-guardx)
-- [✨ Key Features](#-key-features)
-- [🏗️ System Architecture — 8 Layers](#️-system-architecture--8-layers)
-- [🔬 The 3-Phase ML Pipeline](#-the-3-phase-ml-pipeline)
-- [📁 Project Structure](#-project-structure)
-- [⚙️ Tech Stack](#️-tech-stack)
-- [🚀 Getting Started](#-getting-started)
-- [📡 Hardware Integration](#-hardware-integration)
-- [👥 Who Is This For?](#-who-is-this-for)
-- [🔮 Roadmap](#-roadmap)
-- [🤝 Contributing](#-contributing)
-
----
-
-## 🌟 What is GuardX?
+🌟 What is GuardX?
 
 GuardX is an **enterprise-grade, 8-layer AI-powered predictive maintenance platform** built for industrial CNC (Computer Numerical Control) machines. Traditional maintenance is reactive — you fix things after they break. GuardX is **proactive** — it detects microscopic anomalies in vibration, temperature, current, spindle speed, and cutting force **before** they cascade into catastrophic mechanical failures.
 
 At its core, GuardX uses a **self-evolving Hybrid ML Pipeline** that starts unsupervised (no labeled data needed on day 1) and intelligently graduates to high-accuracy supervised fault classification as the system learns your machine. Every prediction comes with **Explainable AI (XAI via SHAP)**, telling engineers exactly *which* sensor signal triggered the alert — no black boxes.
 
----
-
-## ✨ Key Features
+✨ Key Features
 
 | Feature | Description |
 |---|---|
@@ -58,8 +20,7 @@ At its core, GuardX uses a **self-evolving Hybrid ML Pipeline** that starts unsu
 | 💰 **ROI Tracking** | Estimates USD saved based on $500/hr avoided CNC downtime costs |
 
 ---
-
-## 🏗️ System Architecture — 8 Layers
+🏗️ System Architecture — 8 Layers
 
 GuardX is designed as **8 strictly decoupled layers** — a microservice-like architecture ensuring that if one layer fails, the others continue operating independently.
 
@@ -95,8 +56,7 @@ GuardX is designed as **8 strictly decoupled layers** — a microservice-like ar
 ```
 
 ---
-
-## 🔬 The 3-Phase ML Pipeline
+ 🔬 The 3-Phase ML Pipeline
 
 GuardX's ML engine **self-evolves** based on the amount of labeled operational data available — no manual retraining required.
 
@@ -179,7 +139,7 @@ GUARDX/
 
 ---
 
-## ⚙️ Tech Stack
+ ⚙️ Tech Stack
 
 ### Backend & AI
 | Component | Technology |
@@ -210,9 +170,9 @@ GUARDX/
 
 ---
 
-## 🚀 Getting Started
+ 🚀 Getting Started
 
-### Prerequisites
+ Prerequisites
 
 - Python 3.10+
 - InfluxDB instance (local or cloud)
@@ -343,32 +303,3 @@ GuardX is **hardware-ready**. Transitioning from the simulator to real IoT senso
 - [ ] **Digital Twin Integration** — Simulate failure scenarios in a 3D virtual twin
 - [ ] **REST API for ERP** — Direct integration with SAP/Oracle for automated maintenance scheduling
 
----
-
-## 🤝 Contributing
-
-Contributions are welcome! If you have ideas to improve GuardX — whether it's a new fault type fingerprint, a better visualization, or a new alert channel — feel free to open an issue or submit a pull request.
-
-```bash
-# Fork the repo, then:
-git checkout -b feature/your-feature-name
-git commit -m "feat: add your feature"
-git push origin feature/your-feature-name
-# Open a Pull Request
-```
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-
-**Built with ❤️ to keep machines running and factories profitable.**
-
-⭐ *If GuardX saved you from a costly breakdown, give it a star!* ⭐
-
-</div>
